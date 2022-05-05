@@ -147,7 +147,149 @@ def find_best_split(rows):
 
     return best_gain, best_question
 
-@app.route("/")
+class Leaf:
+    def __init__(self, rows):
+        self.predictions = class_counts(rows)
+
+class Decision_Node:
+
+    def __init__(self,
+                 question,
+                 true_branch,
+                 false_branch):
+        self.question = question
+        self.true_branch = true_branch
+        self.false_branch = false_branch
+
+# Function : Build the tree
+def build_tree(rows):
+    
+    # return the question that produces the highest gain.
+    gain, question = find_best_split(rows)
+
+    # if gain equal to 0, it means there're no furthur information gains.
+    if gain == 0:
+        return Leaf(rows)
+
+    # If we reach here, we have found a useful feature / value
+    # to partition on.
+    true_rows, false_rows = partition(rows, question)
+
+    # Recursively build the true branch.
+    true_branch = build_tree(true_rows)
+
+    # Recursively build the false branch.
+    false_branch = build_tree(false_rows)
+
+    # Return a Question node.
+    # This records the best feature / value to ask at this point,
+    # as well as the branches to follow
+    # dependingo on the answer.
+    return Decision_Node(question, true_branch, false_branch)
+
+def print_tree(node, spacing="-"):
+
+    # Base case: we've reached a leaf
+    if isinstance(node, Leaf):
+        print ("|",spacing + "Predict", node.predictions)
+        return
+
+    # Print the question at this node
+    print ("|",spacing + str(node.question))
+    
+    # Call this function recursively on the true branch
+    print ("|",spacing + '--> True:')
+
+    print_tree(node.true_branch, spacing + " ")
+
+    # Call this function recursively on the false branch
+    print ("|",spacing + '--> False:')
+    print_tree(node.false_branch, spacing + " ")
+
+my_tree = build_tree(training_data)
+
+def classify(row, node):
+
+    if isinstance(node, Leaf):
+        return node.predictions
+
+    if node.question.match(row):
+        return classify(row, node.true_branch)
+    else:
+        return classify(row, node.false_branch)
+
+def print_leaf(counts):
+    
+    total = sum(counts.values()) * 1.0
+    probs = {}
+    for lbl in counts.keys():
+        probs[lbl] = str(int(counts[lbl] / total * 100)) + "%"
+    return probs
+
+def leaf_prediction_value(counts):
+    
+    total = sum(counts.values()) * 1.0
+    probs = {}
+    for lbl in counts.keys():
+        probs[lbl] = str(int(counts[lbl] / total * 100)) + "%"
+        
+        an_array = np.array(list(probs.items()))
+        
+    return an_array[0][0]
+
+def leaf_prediction_precentage(counts):
+    
+    total = sum(counts.values()) * 1.0
+    probs = {}
+    for lbl in counts.keys():
+        probs[lbl] = str(int(counts[lbl] / total * 100)) + "%"
+        
+        an_array = np.array(list(probs.items()))
+        
+    return an_array[0][1]
+
+print(classify(training_data[1], my_tree))
+print_leaf(classify(training_data[0], my_tree))
+print(leaf_prediction_value(classify(training_data[0], my_tree)))
+print(leaf_prediction_precentage(classify(training_data[0], my_tree)))
+print(print_leaf(classify(training_data[1], my_tree)))
+
+@app.route('/prediction', methods=['GET', 'POST'])
 def hello():
-    return "hello World"
+
+    data = [
+        request.args.get("wl"),
+        request.args.get("hum"),
+        request.args.get("temp"),
+        request.args.get("ws"),
+        request.args.get("cl"),
+        request.args.get("pw"),
+        ]
+
+    return jsonify(
+        value = leaf_prediction_value(classify(data, my_tree)),
+        precentage = leaf_prediction_precentage(classify(data, my_tree)),
+    )
+
+@app.route("/")
+def hello_world():
+    return "<p>Hello, World!</p>"
+
+# @app.route('/prediction', methods=['GET', 'POST'])
+# def hello():
+
+#     data = [
+#         request.args.get("waterLevel"),
+#         request.args.get("humidity"),
+#         request.args.get("temperature"),
+#         request.args.get("windSpeed"),
+#         request.args.get("clouds"),
+#         request.args.get("pedictedWeather"),
+#         ]
+
+#     return jsonify(
+#         value = leaf_prediction_value(classify(data, my_tree)),
+#         precentage = leaf_prediction_precentage(classify(data, my_tree)),
+#     )
+
 
